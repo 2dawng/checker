@@ -58,6 +58,7 @@ class Game:
         self.current_turn_number = 1  # Initialize turn number to 1
         self.turn_started = False  # Track if turn has started
         self.capturing_piece = None  # Track the piece that just made a capture
+        self.last_capture_color = None  # Track color of last capturing piece
 
     def setup_log_file(self):
         # Create logs directory if it doesn't exist
@@ -66,8 +67,14 @@ class Game:
 
         # Create a timestamp for the filename
         timestamp = time.strftime("%Y%m%d_%H%M%S")
-        filename = os.path.join('logs', f"checkers_game_{timestamp}.log")
+        mode_dir = 'bot' if self.vs_bot else 'pvp'
+        filename = os.path.join('logs', f"{mode_dir}/{timestamp}.txt")
+
+        # Create mode subdirectory if it doesn't exist
+        os.makedirs(os.path.join('logs', mode_dir), exist_ok=True)
+
         self.log_file = open(filename, 'w')
+
         # Write header
         self.log_file.write(
             f"Checkers Game Log - {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
@@ -77,7 +84,6 @@ class Game:
 
     def log_move(self, piece, row, col, captured_pieces=None):
         def get_square_name(row, col):
-            # Always use uppercase letters now
             col_letter = chr(ord('a') + col).upper()
             row_number = BOARD_SIZE - row
             return f"{col_letter}{row_number}"
@@ -85,85 +91,65 @@ class Game:
         start_pos = get_square_name(piece.row, piece.col)
         end_pos = get_square_name(row, col)
 
+        # Check if this is a sequential capture by the same player
+        last_was_capture = (len(self.move_log) > 0 and
+                            len(self.move_log[-1]) > 0 and
+                            'x' in self.move_log[-1][-1] and
+                            self.last_capture_color == piece.color)
+
         # For file logging
         if piece.color == PLAYER1_COLOR:
-            # Check if this is a sequential capture
-            if captured_pieces and self.move_number > 0:
-                # Check if the last move was also a capture
-                last_was_capture = (len(self.move_log) > 0 and
-                                    len(self.move_log[-1]) > 0 and
-                                    'x' in self.move_log[-1][-1])
-                if last_was_capture:
-                    # Sequential capture - use 1 tab
-                    file_text = f"\n\t{start_pos}-{end_pos}"
-                else:
-                    # New capture sequence - start new turn
-                    file_text = f"\n{self.current_turn_number}.\t{
-                        start_pos}-{end_pos}"
+            if captured_pieces and self.move_number > 0 and last_was_capture:
+                # Sequential capture for Player 1 - newline and one tab
+                file_text = f"\n\t{start_pos}-{end_pos}"
             else:
-                # Normal move - start new turn
+                # New turn - include turn number, only add newline if not first move
                 file_text = f"{self.current_turn_number}.\t{
-                    start_pos}-{end_pos}" if not self.turn_started else f"\n{self.current_turn_number}.\t{start_pos}-{end_pos}"
-                self.turn_started = True
+                    start_pos}-{end_pos}" if self.move_number == 0 else f"\n{self.current_turn_number}.\t{start_pos}-{end_pos}"
 
             if captured_pieces:
                 file_text += f"x{len(captured_pieces)}"
+                self.last_capture_color = piece.color
+            else:
+                self.last_capture_color = None
             if piece.king and not piece.was_king:
                 file_text += "K"
             self.log_file.write(file_text)
 
-            # Only increment turn number for non-sequential moves
-            if not (captured_pieces and last_was_capture):
-                self.current_turn_number += 1
-
-        else:
-            # Black's moves
-            if captured_pieces and self.move_number > 0:
-                # Check if the last move was also a capture
-                last_was_capture = (len(self.move_log) > 0 and
-                                    len(self.move_log[-1]) > 0 and
-                                    'x' in self.move_log[-1][-1])
-                if last_was_capture:
-                    # Sequential capture - use 4 tabs
-                    file_text = f"\n\t\t\t\t{start_pos}-{end_pos}"
-                else:
-                    # New capture sequence - add to current line
-                    file_text = f"\t\t{start_pos}-{end_pos}"
+        else:  # Player 2's moves
+            if captured_pieces and self.move_number > 0 and last_was_capture:
+                # Sequential capture for Player 2 - newline and four tabs
+                file_text = f"\n\t\t\t\t{start_pos}-{end_pos}"
             else:
-                # Normal move - add to current line
+                # Normal move - two tabs
                 file_text = f"\t\t{start_pos}-{end_pos}"
 
             if captured_pieces:
                 file_text += f"x{len(captured_pieces)}"
+                self.last_capture_color = piece.color
+            else:
+                self.last_capture_color = None
             if piece.king and not piece.was_king:
                 file_text += "K"
-
-            # Write the move
             self.log_file.write(file_text)
 
-            # Only add newline if this is not part of a capture sequence
-            if not (captured_pieces and last_was_capture):
-                self.log_file.write("\n")
-
-        # For in-game display (use uppercase and single line)
+        # For in-game display
         move_text = f"{start_pos}-{end_pos}"
         if captured_pieces:
             move_text += f"x{len(captured_pieces)}"
         if piece.king and not piece.was_king:
             move_text += "K"
 
+        # For in-game display, use current_turn_number consistently
         if piece.color == PLAYER1_COLOR:
-            # Only add turn number if not a sequential capture
             if not (captured_pieces and last_was_capture):
-                # Calculate display turn number based on existing moves
-                display_turn = len(self.move_log) + 1
-                display_text = f"{display_turn}. {move_text}"
+                display_text = f"{self.current_turn_number}. {move_text}"
             else:
                 display_text = f" {move_text}"
         else:
             display_text = f" {move_text}"
 
-        # Store complete turn information
+        # Store move information
         if piece.color == PLAYER1_COLOR and not (captured_pieces and last_was_capture):
             self.move_log.append([display_text])  # Start new turn
         else:
@@ -432,10 +418,6 @@ class Game:
             self.last_moved_piece = self.selected_piece
             self.animation_start_time = time.time()
 
-            # Check for king promotion
-            if self.selected_piece.king and not was_king:
-                self.print_debug_info("King Promotion")
-
             # Check for additional captures
             if captured_pieces:  # Only check for more captures if we just made a capture
                 next_moves = self.board.get_valid_moves(self.selected_piece)
@@ -468,10 +450,10 @@ class Game:
                 self.selected_piece = pieces_with_captures[0]
                 self.valid_moves = self.board.get_valid_moves(
                     self.selected_piece)
-                self.print_debug_info("Auto-selected Single Capture Piece")
 
-        # Print debug when turn changes
-        self.print_debug_info("Turn Changed")
+        # Only increment turn number after Player 2's move
+        if self.turn == PLAYER1_COLOR:
+            self.current_turn_number += 1
 
     def draw_valid_moves(self):
         # If captures are available
@@ -545,7 +527,6 @@ class Game:
 
             if pieces:
                 piece, moves = random.choice(pieces)
-                self.print_debug_info("Bot Selected Piece")
 
                 # If captures available, only choose from capture moves
                 if any(len(moves[move]) > 0 for move in moves):
@@ -576,7 +557,6 @@ class Game:
                     # Check for additional captures
                     next_moves = self.board.get_valid_moves(piece)
                     while any(len(next_moves[m]) > 0 for m in next_moves):
-                        self.print_debug_info("Bot Multi-Capture")
                         capture_moves = {k: v for k,
                                          v in next_moves.items() if v}
                         move = random.choice(list(capture_moves.keys()))
@@ -591,13 +571,8 @@ class Game:
                         next_moves = self.board.get_valid_moves(piece)
 
                 self.change_turn()
-                self.print_debug_info("Bot Move Complete")
 
             self.bot_thinking = False
-
-    def print_debug_info(self, action):
-        # Disabled terminal logging
-        pass
 
     def draw_move_log(self):
         # Draw move log title
@@ -694,6 +669,7 @@ def main():
                     play_again_btn = Button(
                         BOARD_WIDTH//2 - 100, box_y + box_height + 20, 200, 50, "Play Again")
                     play_again_btn.draw(win)
+                    game.home_button.draw(win)  # Draw home button
                     pygame.display.update()
 
                     # Wait for button click or quit
@@ -707,8 +683,14 @@ def main():
                                 if play_again_btn.handle_event(event):
                                     game_running = False  # End current game to start new one
                                     waiting_for_input = False
+                                elif game.home_button.handle_event(event):
+                                    game_running = False  # End current game
+                                    waiting_for_input = False
+                                    go_to_home = True  # Return to home screen
                             if event.type == pygame.MOUSEMOTION:
                                 play_again_btn.handle_event(event)
+                                game.home_button.handle_event(
+                                    event)  # Handle home button hover
                     continue
 
                 # Then check for timer-based winner (only in 2-player mode)
@@ -743,6 +725,7 @@ def main():
                         play_again_btn = Button(
                             BOARD_WIDTH//2 - 100, box_y + box_height + 20, 200, 50, "Play Again")
                         play_again_btn.draw(win)
+                        game.home_button.draw(win)  # Draw home button
                         pygame.display.update()
 
                         # Wait for button click or quit
@@ -758,6 +741,8 @@ def main():
                                         waiting_for_input = False
                                 if event.type == pygame.MOUSEMOTION:
                                     play_again_btn.handle_event(event)
+                                    game.home_button.handle_event(
+                                        event)  # Handle home button hover
                         continue
 
                 if game.turn == PLAYER2_COLOR and game.vs_bot and not game.game_over:
