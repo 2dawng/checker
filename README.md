@@ -1,15 +1,22 @@
 # Checkers Game
 
-A simple implementation of the Checkers (Draughts) game in Python using Pygame. The game features both 2-player mode and a simple bot opponent.
+A modern implementation of the classic Checkers (Draughts) game using Python and Pygame. Features both a two-player mode and a bot opponent.
 
 ## Features
 
-- 2-player mode with timer (5 minutes per player)
-- Bot mode with a simple AI opponent
-- King pieces (when a piece reaches the opposite end)
-- Valid move highlighting
-- Forced capture rules
-- Timer display for each player
+- Two game modes:
+  - Two-player mode with timer (33.3 minutes per player)
+  - Bot mode for single-player gameplay
+- Modern chess.com style board design
+- Forced capture rules with multi-capture support
+- King pieces with special movement rules
+- Move highlighting system:
+  - Cyan indicators for pieces that can capture
+  - Green indicators for valid moves
+  - Pulsing animation for selected pieces
+- Detailed move logging with algebraic notation
+- Game state tracking and display
+- Home button for easy navigation
 
 ## Requirements
 
@@ -18,8 +25,8 @@ A simple implementation of the Checkers (Draughts) game in Python using Pygame. 
 
 ## Installation
 
-1. Make sure you have Python installed on your system
-2. Install the required package:
+1. Ensure Python is installed on your system
+2. Install required packages:
 
 ```bash
 pip install -r requirements.txt
@@ -33,70 +40,80 @@ pip install -r requirements.txt
 python checker_game.py
 ```
 
-2. Select game mode:
+2. Select game mode from the menu:
+   - Click "2 Players" for two-player mode
+   - Click "vs Bot" to play against the computer
 
-   - Press '1' for 2-player mode
-   - Press '2' to play against the bot
+### Game Rules
 
-3. Game Rules:
-   - Red moves first
-   - Click on your piece to select it
-   - Green circles show valid moves
-   - Pieces move diagonally forward
-   - Kings can move both forward and backward
-   - If a capture is available, it must be taken
-   - Each player has 5 minutes total time
+1. Basic Movement:
 
-## Improving the Bot
+   - Regular pieces move diagonally forward only
+   - Kings can move diagonally in any direction
+   - Pieces capture by jumping over opponent pieces
 
-The current bot implementation (in the `bot_move` method of the `Game` class) uses a simple random strategy. Here are some ways you can improve it:
+2. Capture Rules:
 
-1. Add Move Evaluation:
+   - Captures are mandatory when available
+   - Multiple captures must be completed with the same piece
+   - The game shows available captures with cyan indicators
 
-   - Assign scores to different moves based on:
-     - Distance to becoming a king
-     - Number of pieces captured
-     - Board position (center control)
-     - Piece protection
+3. King Promotion:
 
-2. Implement Minimax Algorithm:
+   - Pieces become kings when reaching the opposite end
+   - Kings are marked with a gold crown
+   - Kings can move and capture in any diagonal direction
 
-   - Add depth-first search to look ahead several moves
-   - Use alpha-beta pruning for better performance
-   - Consider move ordering to improve pruning
+4. Game End Conditions:
+   - Capturing all opponent pieces
+   - No legal moves available (stalemate)
+   - Time runs out (in two-player mode)
 
-3. Add Position Evaluation:
+### Controls
 
-   - Count piece advantage
-   - Value kings more than regular pieces
-   - Consider piece positioning
-   - Evaluate pawn structure
+- Left-click to:
+  - Select a piece
+  - Move to a valid square
+  - Deselect a piece by clicking elsewhere
+- Home button to return to mode selection
 
-4. Implement Opening Book:
-   - Add common opening moves
-   - Store and use successful move sequences
+## Game Interface
 
-Example structure for an improved bot:
+- Main board with 8x8 squares
+- Side panel showing:
+  - Move log in algebraic notation
+  - Timer display (two-player mode)
+  - Home button
+- Visual indicators:
+  - Cyan circles: Pieces that can capture
+  - Green circles: Valid move destinations
+  - Gold highlight: Selected piece
+  - Crown symbol: King pieces
 
-```python
-def evaluate_position(self, board):
-    # Add position evaluation logic
-    pass
+## Move Logging
 
-def minimax(self, depth, board, alpha, beta, maximizing_player):
-    # Add minimax implementation
-    pass
+The game automatically logs all moves in algebraic notation:
 
-def get_best_move(self):
-    # Use minimax to find the best move
-    pass
-```
+- Format: `[turn number]. [white's move] [black's move]`
+- Example: `1. E3-F4 B6-C5`
+- Captures are marked with 'x': `2. F4-D6x1`
+- Multiple captures: `F4-H6x1 D6-B4x1`
 
-## Code Structure
+## File Structure
 
-- `Piece` class: Handles individual checker pieces
-- `Board` class: Manages the game board and valid moves
-- `Game` class: Controls game flow and user interaction
-- `main()`: Handles game initialization and main loop
+- `checker_game.py`: Main game logic and UI
+- `board.py`: Board state and move validation
+- `piece.py`: Piece movement and properties
+- `button.py`: UI button implementation
+- `constants.py`: Game constants and colors
+
+## Development
+
+The game is built with a modular structure for easy extension:
+
+- Board logic is separated from UI
+- Move validation is handled by the Board class
+- Game state management in Game class
+- Constants are centralized for easy modification
 
 Feel free to modify and improve the code!
