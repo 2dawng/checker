@@ -3,6 +3,7 @@ import sys
 import time
 import math
 import os
+import threading
 from typing import List, Tuple, Optional
 from constants import *
 from button import Button
@@ -33,6 +34,7 @@ class Game:
         self.setup_log_file()
         self.home_button = Button(BOARD_WIDTH + 20, 20, 160, 40, "Home")
         self.bot_thinking = False
+        self.waiting_for_continued_capture = False  # Flag for multi-capture sequences
         # Add last move animation tracking
         self.last_moved_piece = None
         self.last_move_start = None  # Track the starting position of the last moved piece
@@ -420,6 +422,16 @@ class Game:
         state.sort()
         return "|".join(state)
 
+    def bot_turn(self):
+        """Bot/computer's turn"""
+        # Ensure we're not still processing from a previous turn
+        if not self.bot_thinking:
+            # Start a new thread for bot's move calculation
+            self.bot_thinking = True
+            bot_thread = threading.Thread(target=bot_move, args=(self,))
+            bot_thread.daemon = True
+            bot_thread.start()
+
     def __del__(self):
         if self.log_file:
             self.log_file.close()
@@ -622,7 +634,15 @@ def main():
                         continue
 
                 if game.turn == PLAYER2_COLOR and game.vs_bot and not game.game_over:
-                    bot_move(game)
+                    # If bot has a continued capture sequence, handle it with a delay
+                    if game.waiting_for_continued_capture and game.capturing_piece:
+                        # Add a small delay so player can see the intermediate state
+                        pygame.time.delay(800)  # 800ms delay to see the capture
+                        game.waiting_for_continued_capture = False
+                        game.bot_thinking = True
+                        game.bot_turn()  # Continue with the next capture
+                    elif not game.bot_thinking:
+                        game.bot_turn()
 
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
