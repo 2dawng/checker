@@ -18,3 +18,5 @@ CROWN_COLOR = (255, 215, 0)
 BUTTON_COLOR = (70, 130, 180)
 BUTTON_HOVER_COLOR = (100, 160, 210)
 PANEL_COLOR = (40, 40, 40)
+LAST_MOVE_COLOR = (230, 230, 250)  # Lavender for last move indicator
+CAPTURE_COLOR = (219, 112, 147)    # Light-mid red for captured pieces indicator

@@ -2,34 +2,15 @@ import pygame
 import sys
 import time
 import math
+import os
 from typing import List, Tuple, Optional
 from constants import *
 from button import Button
 from board import Board
-import os
+from game_logic import log_move, draw_move_log, draw_valid_moves, bot_move
 
 # Initialize Pygame
 pygame.init()
-
-# Constants
-BOARD_SIZE = 8
-SQUARE_SIZE = 80  # Reduced board size
-BOARD_WIDTH = BOARD_SIZE * SQUARE_SIZE
-SIDE_PANEL_WIDTH = 200
-WINDOW_SIZE = (BOARD_WIDTH + SIDE_PANEL_WIDTH, BOARD_WIDTH)
-
-# Colors (chess.com style)
-BLACK = (0, 0, 0)
-WHITE = (255, 255, 255)
-LIGHT_SQUARE = (238, 238, 210)  # Light square color
-DARK_SQUARE = (118, 150, 86)    # Dark square color
-PLAYER1_COLOR = (0, 0, 0)       # Black pieces
-PLAYER2_COLOR = (255, 255, 255)  # White pieces
-CROWN_COLOR = (255, 215, 0)
-BUTTON_COLOR = (70, 130, 180)
-BUTTON_HOVER_COLOR = (100, 160, 210)
-PANEL_COLOR = (40, 40, 40)
-
 
 class Game:
     def __init__(self, win, vs_bot=True):
@@ -54,11 +35,18 @@ class Game:
         self.bot_thinking = False
         # Add last move animation tracking
         self.last_moved_piece = None
+        self.last_move_start = None  # Track the starting position of the last moved piece
+        self.last_captured_pieces = []  # Track pieces captured in the last move
         self.pulse_speed = 3.0  # Speed of the pulse animation
         self.current_turn_number = 1  # Initialize turn number to 1
         self.turn_started = False  # Track if turn has started
         self.capturing_piece = None  # Track the piece that just made a capture
         self.last_capture_color = None  # Track color of last capturing piece
+        
+        # For draw detection
+        self.position_history = []  # Track board positions for repetition detection
+        self.moves_without_capture = 0  # Track moves without capture
+        self.moves_without_pawn_move = 0  # Track moves without non-king piece movement
 
     def setup_log_file(self):
         # Create logs directory if it doesn't exist
@@ -82,122 +70,6 @@ class Game:
             f"Mode: {'Bot' if self.vs_bot else 'Two Player'}\n")
         self.log_file.write("-" * 50 + "\n\n")
 
-    def log_move(self, piece, row, col, captured_pieces=None):
-        def get_square_name(row, col):
-            col_letter = chr(ord('a') + col).upper()
-            row_number = BOARD_SIZE - row
-            return f"{col_letter}{row_number}"
-
-        start_pos = get_square_name(piece.row, piece.col)
-        end_pos = get_square_name(row, col)
-
-        # Check if this is a sequential capture by the same player
-        last_was_capture = (len(self.move_log) > 0 and
-                            len(self.move_log[-1]) > 0 and
-                            'x' in self.move_log[-1][-1] and
-                            self.last_capture_color == piece.color)
-
-        # For file logging
-        if piece.color == PLAYER1_COLOR:
-            if captured_pieces and self.move_number > 0 and last_was_capture:
-                # Sequential capture for Player 1 - newline and one tab
-                file_text = f"\n\t{start_pos}-{end_pos}"
-            else:
-                # New turn - include turn number, only add newline if not first move
-                file_text = f"{self.current_turn_number}.\t{
-                    start_pos}-{end_pos}" if self.move_number == 0 else f"\n{self.current_turn_number}.\t{start_pos}-{end_pos}"
-
-            if captured_pieces:
-                file_text += f"x{len(captured_pieces)}"
-                self.last_capture_color = piece.color
-            else:
-                self.last_capture_color = None
-            if piece.king and not piece.was_king:
-                file_text += "K"
-            self.log_file.write(file_text)
-
-        else:  # Player 2's moves
-            if captured_pieces and self.move_number > 0 and last_was_capture:
-                # Sequential capture for Player 2 - newline and four tabs
-                file_text = f"\n\t\t\t\t{start_pos}-{end_pos}"
-            else:
-                # Normal move - two tabs
-                file_text = f"\t\t{start_pos}-{end_pos}"
-
-            if captured_pieces:
-                file_text += f"x{len(captured_pieces)}"
-                self.last_capture_color = piece.color
-            else:
-                self.last_capture_color = None
-            if piece.king and not piece.was_king:
-                file_text += "K"
-            self.log_file.write(file_text)
-
-        # For in-game display
-        move_text = f"{start_pos}-{end_pos}"
-        if captured_pieces:
-            move_text += f"x{len(captured_pieces)}"
-        if piece.king and not piece.was_king:
-            move_text += "K"
-
-        # For in-game display, use current_turn_number consistently
-        if piece.color == PLAYER1_COLOR:
-            if not (captured_pieces and last_was_capture):
-                display_text = f"{self.current_turn_number}. {move_text}"
-            else:
-                display_text = f" {move_text}"
-        else:
-            display_text = f" {move_text}"
-
-        # Store move information
-        if piece.color == PLAYER1_COLOR and not (captured_pieces and last_was_capture):
-            self.move_log.append([display_text])  # Start new turn
-        else:
-            if self.move_log:  # Add to current turn
-                self.move_log[-1].append(display_text)
-
-        self.log_file.flush()
-        self.move_number += 1
-
-    def get_all_moves(self):
-        moves = {}
-        for row in range(BOARD_SIZE):
-            for col in range(BOARD_SIZE):
-                piece = self.board.get_piece(row, col)
-                if piece != 0 and piece.color == self.turn:
-                    piece_moves = self.board.get_valid_moves(piece)
-                    if piece_moves:
-                        moves[piece] = piece_moves
-        return moves
-
-    def has_captures_available(self):
-        all_moves = self.get_all_moves()
-        for piece in all_moves:
-            for move in all_moves[piece]:
-                if len(all_moves[piece][move]) > 0:  # If there are pieces to capture
-                    return True
-        return False
-
-    def get_pieces_with_captures(self):
-        pieces_with_captures = []
-        all_moves = self.get_all_moves()
-        for piece in all_moves:
-            for move in all_moves[piece]:
-                if len(all_moves[piece][move]) > 0:
-                    pieces_with_captures.append(piece)
-                    break
-        return pieces_with_captures
-
-    def check_stalemate(self):
-        # Get all possible moves for current player
-        all_moves = self.get_all_moves()
-
-        # If there are no possible moves, it's a stalemate
-        if not all_moves:
-            self.game_over = True
-            return True
-        return False
-
     def check_winner(self):
         # First check for piece elimination
         player1_pieces = 0
@@ -219,16 +91,61 @@ class Game:
             return 'Player 1 WINS!'
 
         # Then check for stalemate only if both players still have pieces
-        if self.check_stalemate():
+        if self.board.check_stalemate(self.turn):
             return 'Stalemate - Draw'
 
+        return None
+
+    def check_draw(self):
+        """
+        Check if the game is a draw based on:
+        1. Position repetition (5 times)
+        2. 20 moves without captures
+        3. 20 moves without non-king piece movement
+        """
+        # Check for position repetition (5 times)
+        current_state = self.encode_board_state()
+        position_count = self.position_history.count(current_state) + 1  # +1 for current position
+        
+        if position_count >= 5:
+            self.game_over = True
+            return "Position Repetition - Draw"
+            
+        # Check for 20 moves without captures
+        if self.moves_without_capture >= 40:  # 40 half-moves = 20 full moves
+            self.game_over = True
+            return "No Captures in 20 Moves - Draw"
+            
+        # Check for 20 moves without pawn movement
+        if self.moves_without_pawn_move >= 40:  # 40 half-moves = 20 full moves
+            self.game_over = True
+            return "No Pawn Moves in 20 Moves - Draw"
+            
         return None
 
     def update(self):
         # Draw board and pieces
         self.board.draw(self.win)
+        
+        # Draw last move's starting square with light lavender color (reduced opacity)
+        if self.last_move_start and not self.game_over:
+            start_row, start_col = self.last_move_start
+            start_rect = pygame.Rect(start_col * SQUARE_SIZE, start_row * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE)
+            # Draw very light lavender overlay (reduced opacity to 80)
+            lavender_surface = pygame.Surface((SQUARE_SIZE, SQUARE_SIZE), pygame.SRCALPHA)
+            lavender_surface.fill((*LAST_MOVE_COLOR, 80))  # Reduced alpha for subtle effect
+            self.win.blit(lavender_surface, start_rect)
+        
+        # Draw last captured pieces with light red color (reduced opacity)
+        if self.last_captured_pieces and not self.game_over:
+            for piece in self.last_captured_pieces:
+                captured_rect = pygame.Rect(piece.col * SQUARE_SIZE, piece.row * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE)
+                # Draw very light red overlay (reduced opacity to 80)
+                capture_surface = pygame.Surface((SQUARE_SIZE, SQUARE_SIZE), pygame.SRCALPHA)
+                capture_surface.fill((*CAPTURE_COLOR, 80))  # Reduced alpha for subtle effect
+                self.win.blit(capture_surface, captured_rect)
 
-        # Draw last move indicator (static circle)
+        # Draw last move indicator (gold circle around destination square)
         if self.last_moved_piece and not self.game_over:
             x = self.last_moved_piece.col * SQUARE_SIZE + SQUARE_SIZE // 2
             y = self.last_moved_piece.row * SQUARE_SIZE + SQUARE_SIZE // 2
@@ -249,7 +166,7 @@ class Game:
 
         # Only draw valid moves for human player
         if self.turn == PLAYER1_COLOR or not self.vs_bot:
-            self.draw_valid_moves()
+            draw_valid_moves(self)
 
         # Draw side panel
         pygame.draw.rect(self.win, PANEL_COLOR, (BOARD_WIDTH,
@@ -259,7 +176,7 @@ class Game:
         self.draw_timer()
 
         # Draw move log
-        self.draw_move_log()
+        draw_move_log(self)
 
         # Draw home button
         self.home_button.draw(self.win)
@@ -331,7 +248,7 @@ class Game:
         piece = self.board.get_piece(row, col)
 
         # If captures are available
-        if self.has_captures_available():
+        if self.board.has_captures_available(self.turn):
             # If there's a piece that just made a capture and has more captures
             if self.capturing_piece:
                 # Allow deselecting the current piece by clicking elsewhere
@@ -352,7 +269,7 @@ class Game:
                     return True
                 return False
 
-            pieces_with_captures = self.get_pieces_with_captures()
+            pieces_with_captures = self.board.get_pieces_with_captures(self.turn)
 
             # If clicking on a piece that can capture
             if piece != 0 and piece.color == self.turn and piece in pieces_with_captures:
@@ -404,9 +321,34 @@ class Game:
             # Log the move before making it to get correct starting position
             captured_pieces = self.valid_moves[(row, col)]
             if captured_pieces:
-                self.log_move(self.selected_piece, row, col, captured_pieces)
+                log_move(self, self.selected_piece, row, col, captured_pieces)
             else:
-                self.log_move(self.selected_piece, row, col)
+                log_move(self, self.selected_piece, row, col)
+
+            # Store original starting position before any moves in this sequence
+            # Only update if this is not a continuation of a multi-capture
+            if not self.capturing_piece:
+                self.last_move_start = (self.selected_piece.row, self.selected_piece.col)
+            
+            # Track captured pieces
+            self.last_captured_pieces = captured_pieces.copy() if captured_pieces else []
+
+            # Update draw detection variables
+            # Record board position before the move
+            current_state = self.encode_board_state()
+            self.position_history.append(current_state)
+            
+            # If we captured pieces, reset the no-capture counter
+            if captured_pieces:
+                self.moves_without_capture = 0
+            else:
+                self.moves_without_capture += 1
+                
+            # If we moved a non-king piece, reset the no-pawn-move counter
+            if not self.selected_piece.king:
+                self.moves_without_pawn_move = 0
+            else:
+                self.moves_without_pawn_move += 1
 
             # Make the move
             self.board.move(self.selected_piece, row, col)
@@ -444,8 +386,8 @@ class Game:
         self.turn = PLAYER2_COLOR if self.turn == PLAYER1_COLOR else PLAYER1_COLOR
 
         # Auto-select if there's only one piece that can capture
-        if self.has_captures_available():
-            pieces_with_captures = self.get_pieces_with_captures()
+        if self.board.has_captures_available(self.turn):
+            pieces_with_captures = self.board.get_pieces_with_captures(self.turn)
             if len(pieces_with_captures) == 1 and (self.turn == PLAYER1_COLOR or not self.vs_bot):
                 self.selected_piece = pieces_with_captures[0]
                 self.valid_moves = self.board.get_valid_moves(
@@ -455,147 +397,28 @@ class Game:
         if self.turn == PLAYER1_COLOR:
             self.current_turn_number += 1
 
-    def draw_valid_moves(self):
-        # If captures are available
-        if self.has_captures_available():
-            # If there's a capturing piece, only highlight that piece and its moves
-            if self.capturing_piece:
-                piece_x = self.capturing_piece.col * SQUARE_SIZE + SQUARE_SIZE//2
-                piece_y = self.capturing_piece.row * SQUARE_SIZE + SQUARE_SIZE//2
-                pygame.draw.circle(self.win, (0, 255, 255),
-                                   (piece_x, piece_y), 10)
-
-                if self.selected_piece == self.capturing_piece:
-                    moves = self.valid_moves
-                    for move in moves:
-                        if len(moves[move]) > 0:  # Only show capture moves
-                            row, col = move
-                            pygame.draw.circle(self.win, (0, 255, 0),
-                                               (col * SQUARE_SIZE + SQUARE_SIZE//2,
-                                                row * SQUARE_SIZE + SQUARE_SIZE//2), 20)
-            else:
-                pieces_with_captures = self.get_pieces_with_captures()
-                # Draw indicators on all pieces that can capture
-                for piece in pieces_with_captures:
-                    piece_x = piece.col * SQUARE_SIZE + SQUARE_SIZE//2
-                    piece_y = piece.row * SQUARE_SIZE + SQUARE_SIZE//2
-                    pygame.draw.circle(
-                        self.win, (0, 255, 255), (piece_x, piece_y), 10)
-
-                # If a piece is selected, show only its capture destinations
-                if self.selected_piece and self.selected_piece in pieces_with_captures:
-                    moves = self.valid_moves
-                    for move in moves:
-                        if len(moves[move]) > 0:  # Only show capture moves
-                            row, col = move
-                            pygame.draw.circle(self.win, (0, 255, 0),
-                                               (col * SQUARE_SIZE + SQUARE_SIZE//2,
-                                                row * SQUARE_SIZE + SQUARE_SIZE//2), 20)
-
-        # If no captures and a piece is selected, show its regular moves
-        elif self.selected_piece:
-            for move in self.valid_moves:
-                row, col = move
-                pygame.draw.circle(self.win, (0, 255, 0),
-                                   (col * SQUARE_SIZE + SQUARE_SIZE//2,
-                                    row * SQUARE_SIZE + SQUARE_SIZE//2), 15)
-
-    def bot_move(self):
-        if not self.game_over and not self.bot_thinking:
-            self.bot_thinking = True
-            import random
-            import time
-
-            pygame.time.wait(500)
-
-            all_moves = self.get_all_moves()
-            pieces = []
-
-            # Check for captures first
-            for piece in all_moves:
-                moves = all_moves[piece]
-                has_capture = any(len(moves[move]) > 0 for move in moves)
-                if has_capture:
-                    pieces.append((piece, moves))
-
-            # If no captures, get all valid moves
-            if not pieces:
-                for piece in all_moves:
-                    moves = all_moves[piece]
-                    if moves:
-                        pieces.append((piece, moves))
-
-            if pieces:
-                piece, moves = random.choice(pieces)
-
-                # If captures available, only choose from capture moves
-                if any(len(moves[move]) > 0 for move in moves):
-                    capture_moves = {k: v for k, v in moves.items() if v}
-                    move = random.choice(list(capture_moves.keys()))
-                else:
-                    move = random.choice(list(moves.keys()))
-
-                # Store the piece's previous state for logging
-                was_king = piece.king
-                piece.was_king = was_king
-
-                # Log the move before making it to get correct starting position
-                skipped = moves[move]
-                if skipped:
-                    self.log_move(piece, move[0], move[1], skipped)
-                else:
-                    self.log_move(piece, move[0], move[1])
-
-                # Make the move
-                self.board.move(piece, move[0], move[1])
-                # Start animation for the bot's moved piece
-                self.last_moved_piece = piece
-                self.animation_start_time = time.time()
-
-                if skipped:
-                    self.board.remove(skipped)
-                    # Check for additional captures
-                    next_moves = self.board.get_valid_moves(piece)
-                    while any(len(next_moves[m]) > 0 for m in next_moves):
-                        capture_moves = {k: v for k,
-                                         v in next_moves.items() if v}
-                        move = random.choice(list(capture_moves.keys()))
-                        # Log the additional capture before making it
-                        self.log_move(piece, move[0],
-                                      move[1], next_moves[move])
-                        self.board.move(piece, move[0], move[1])
-                        # Update animation for multi-capture moves
-                        self.last_moved_piece = piece
-                        self.animation_start_time = time.time()
-                        self.board.remove(next_moves[move])
-                        next_moves = self.board.get_valid_moves(piece)
-
-                self.change_turn()
-
-            self.bot_thinking = False
-
-    def draw_move_log(self):
-        # Draw move log title
-        font = pygame.font.Font(None, 36)
-        title = font.render("Move Log", True, WHITE)
-        self.win.blit(title, (BOARD_WIDTH + 20, 220))
-
-        # Draw moves with smaller font
-        font = pygame.font.Font(None, 20)  # Reduced font size
-        y_pos = 270
-        max_moves = 20  # Show more moves since they take less space
-
-        # Calculate start index for display
-        total_turns = len(self.move_log)
-        start_idx = max(0, total_turns - max_moves)
-
-        # Display moves
-        for turn_moves in self.move_log[start_idx:]:
-            # Combine all moves in the turn
-            line = "".join(turn_moves)
-            text = font.render(line, True, WHITE)
-            self.win.blit(text, (BOARD_WIDTH + 20, y_pos))
-            y_pos += 20  # Space between lines
+    def encode_board_state(self):
+        """
+        Encode the current board state into a string representation for position repetition detection.
+        """
+        state = []
+        for row in range(BOARD_SIZE):
+            for col in range(BOARD_SIZE):
+                piece = self.board.get_piece(row, col)
+                if piece != 0:
+                    # Encode as: position + color + king status
+                    # e.g. "23B1" means row 2, col 3, Black, King
+                    king_status = "1" if piece.king else "0"
+                    color_code = "B" if piece.color == PLAYER1_COLOR else "W"
+                    state.append(f"{row}{col}{color_code}{king_status}")
+        
+        # Also encode whose turn it is
+        turn_code = "B" if self.turn == PLAYER1_COLOR else "W"
+        state.append(f"TURN{turn_code}")
+        
+        # Sort for consistent representation regardless of piece ordering
+        state.sort()
+        return "|".join(state)
 
     def __del__(self):
         if self.log_file:
@@ -646,6 +469,59 @@ def main():
                     # Create result box
                     font = pygame.font.Font(None, 72)
                     text = font.render(f"{piece_winner}", True, WHITE)
+                    text_rect = text.get_rect()
+
+                    # Box dimensions
+                    box_width = text_rect.width + 100
+                    box_height = text_rect.height + 60
+                    box_x = BOARD_WIDTH//2 - box_width//2
+                    box_y = BOARD_WIDTH//2 - box_height//2
+
+                    # Draw box with border
+                    box = pygame.Rect(box_x, box_y, box_width, box_height)
+                    pygame.draw.rect(win, (50, 50, 50), box)  # Dark background
+                    pygame.draw.rect(win, (100, 100, 100),
+                                     box, 3)  # Light border
+
+                    # Draw text centered in box
+                    text_x = box_x + (box_width - text_rect.width)//2
+                    text_y = box_y + (box_height - text_rect.height)//2
+                    win.blit(text, (text_x, text_y))
+
+                    # Create Play Again button
+                    play_again_btn = Button(
+                        BOARD_WIDTH//2 - 100, box_y + box_height + 20, 200, 50, "Play Again")
+                    play_again_btn.draw(win)
+                    game.home_button.draw(win)  # Draw home button
+                    pygame.display.update()
+
+                    # Wait for button click or quit
+                    waiting_for_input = True
+                    while waiting_for_input:
+                        for event in pygame.event.get():
+                            if event.type == pygame.QUIT:
+                                pygame.quit()
+                                sys.exit()
+                            if event.type == pygame.MOUSEBUTTONDOWN:
+                                if play_again_btn.handle_event(event):
+                                    game_running = False  # End current game to start new one
+                                    waiting_for_input = False
+                                elif game.home_button.handle_event(event):
+                                    game_running = False  # End current game
+                                    waiting_for_input = False
+                                    go_to_home = True  # Return to home screen
+                            if event.type == pygame.MOUSEMOTION:
+                                play_again_btn.handle_event(event)
+                                game.home_button.handle_event(
+                                    event)  # Handle home button hover
+                    continue
+
+                # Check for draw conditions
+                draw_result = game.check_draw()
+                if draw_result:
+                    # Create result box
+                    font = pygame.font.Font(None, 72)
+                    text = font.render(f"{draw_result}", True, WHITE)
                     text_rect = text.get_rect()
 
                     # Box dimensions
@@ -746,7 +622,7 @@ def main():
                         continue
 
                 if game.turn == PLAYER2_COLOR and game.vs_bot and not game.game_over:
-                    game.bot_move()
+                    bot_move(game)
 
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:

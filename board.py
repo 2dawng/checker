@@ -259,3 +259,95 @@ class Board:
     def remove(self, pieces: List[Piece]):
         for piece in pieces:
             self.board[piece.row][piece.col] = 0
+            
+    def get_square_name(self, row: int, col: int) -> str:
+        """Convert board coordinates to algebraic notation (e.g., E3)"""
+        col_letter = chr(ord('a') + col).upper()
+        row_number = BOARD_SIZE - row
+        return f"{col_letter}{row_number}"
+    
+    def get_all_moves(self, current_color):
+        """Get all possible moves for pieces of the given color"""
+        moves = {}
+        for row in range(BOARD_SIZE):
+            for col in range(BOARD_SIZE):
+                piece = self.get_piece(row, col)
+                if piece != 0 and piece.color == current_color:
+                    piece_moves = self.get_valid_moves(piece)
+                    if piece_moves:
+                        moves[piece] = piece_moves
+        return moves
+    
+    def has_captures_available(self, current_color):
+        """Check if any piece of the given color has captures available"""
+        all_moves = self.get_all_moves(current_color)
+        for piece in all_moves:
+            for move in all_moves[piece]:
+                if len(all_moves[piece][move]) > 0:  # If there are pieces to capture
+                    return True
+        return False
+    
+    def get_pieces_with_captures(self, current_color):
+        """Get all pieces of the given color that have captures available"""
+        pieces_with_captures = []
+        all_moves = self.get_all_moves(current_color)
+        for piece in all_moves:
+            for move in all_moves[piece]:
+                if len(all_moves[piece][move]) > 0:
+                    pieces_with_captures.append(piece)
+                    break
+        return pieces_with_captures
+    
+    def check_stalemate(self, current_color):
+        """Check if the current player has no valid moves (stalemate)"""
+        # Get all possible moves for current player
+        all_moves = self.get_all_moves(current_color)
+        # If there are no possible moves, it's a stalemate
+        return not all_moves
+        
+    def copy(self):
+        """Create a deep copy of the board for minimax algorithm"""
+        copied_board = Board.__new__(Board)
+        copied_board.board = []
+        
+        # Copy the board state
+        for row in range(BOARD_SIZE):
+            copied_board.board.append([])
+            for col in range(BOARD_SIZE):
+                piece = self.get_piece(row, col)
+                if piece != 0:
+                    # Create a new piece with the same properties
+                    new_piece = Piece(piece.row, piece.col, piece.color)
+                    new_piece.king = piece.king
+                    new_piece.was_king = piece.was_king
+                    new_piece.calc_pos()
+                    copied_board.board[row].append(new_piece)
+                else:
+                    copied_board.board[row].append(0)
+                    
+        return copied_board
+        
+    def check_winner(self):
+        """Check if there's a winner based on piece count"""
+        player1_pieces = 0
+        player2_pieces = 0
+        
+        for row in range(BOARD_SIZE):
+            for col in range(BOARD_SIZE):
+                piece = self.get_piece(row, col)
+                if piece != 0:
+                    if piece.color == PLAYER1_COLOR:
+                        player1_pieces += 1
+                    else:
+                        player2_pieces += 1
+        
+        if player1_pieces == 0:
+            return PLAYER2_COLOR
+        elif player2_pieces == 0:
+            return PLAYER1_COLOR
+            
+        # Check for stalemate
+        if self.check_stalemate(PLAYER1_COLOR) and self.check_stalemate(PLAYER2_COLOR):
+            return "DRAW"
+            
+        return None
