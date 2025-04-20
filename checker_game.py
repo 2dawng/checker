@@ -213,10 +213,10 @@ class Game:
 
         if player1_pieces == 0:
             self.game_over = True
-            return 'Player 2'
+            return 'Player 2 WINS!'
         elif player2_pieces == 0:
             self.game_over = True
-            return 'Player 1'
+            return 'Player 1 WINS!'
 
         # Then check for stalemate only if both players still have pieces
         if self.check_stalemate():
@@ -645,7 +645,7 @@ def main():
                 if piece_winner:
                     # Create result box
                     font = pygame.font.Font(None, 72)
-                    text = font.render(f"{piece_winner} WINS!", True, WHITE)
+                    text = font.render(f"{piece_winner}", True, WHITE)
                     text_rect = text.get_rect()
 
                     # Box dimensions
@@ -700,7 +700,7 @@ def main():
                         # Create result box
                         font = pygame.font.Font(None, 72)
                         text = font.render(
-                            f"{timer_winner} WINS!", True, WHITE)
+                            f"{timer_winner}", True, WHITE)
                         text_rect = text.get_rect()
 
                         # Box dimensions
