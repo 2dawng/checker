@@ -366,14 +366,6 @@ def bot_move(game):
         else:
             depth = 5  # End game, deeper search
 
-
-
-
-        depth = 3 # For testing, keep it shallow
-
-
-
-
         # Find the best move using minimax
         best_move = find_best_move(game, depth)
         
