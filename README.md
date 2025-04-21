@@ -1,12 +1,12 @@
 # Checkers Game
 
-A modern implementation of the classic Checkers (Draughts) game using Python and Pygame. Features both a two-player mode and a bot opponent.
+A modern implementation of the classic Checkers (Draughts) game using Python and Pygame. Features both a two-player mode and a sophisticated AI opponent.
 
 ## Features
 
 - Two game modes:
   - Two-player mode with timer (33.3 minutes per player)
-  - Bot mode for single-player gameplay
+  - AI mode with adaptive difficulty for single-player gameplay
 - Modern chess.com style board design
 - Forced capture rules with multi-capture support
 - King pieces with special movement rules
@@ -17,6 +17,7 @@ A modern implementation of the classic Checkers (Draughts) game using Python and
 - Detailed move logging with algebraic notation
 - Game state tracking and display
 - Home button for easy navigation
+- Animation for piece movement
 
 ## Requirements
 
@@ -98,12 +99,31 @@ The game automatically logs all moves in algebraic notation:
 - Example: `1. E3-F4 B6-C5`
 - Captures are marked with 'x': `2. F4-D6x1`
 - Multiple captures: `F4-H6x1 D6-B4x1`
+- King promotions are marked with 'K': `3. A7-B8K`
+
+The move log is displayed in the side panel during gameplay and also saved to a file for later review.
+
+## AI Opponent
+
+The game features an intelligent AI opponent using the minimax algorithm with alpha-beta pruning:
+
+- Adaptive search depth based on game phase
+  - Early game: 3-ply depth
+  - Mid game: 4-ply depth
+  - End game: 5-ply depth for more precise calculations
+- Position evaluation considers:
+  - Material balance (pieces and kings)
+  - Board control and piece positioning
+  - Forward progress for regular pieces
+  - King mobility
+- The AI enforces optimal play by prioritizing captures and considering sequential multi-captures
 
 ## File Structure
 
 - `checker_game.py`: Main game logic and UI
 - `board.py`: Board state and move validation
 - `piece.py`: Piece movement and properties
+- `game_logic.py`: AI algorithms, move logging, and game mechanics
 - `button.py`: UI button implementation
 - `constants.py`: Game constants and colors
 
@@ -114,6 +134,7 @@ The game is built with a modular structure for easy extension:
 - Board logic is separated from UI
 - Move validation is handled by the Board class
 - Game state management in Game class
+- AI logic in separate functions for easy modification
 - Constants are centralized for easy modification
 
 Feel free to modify and improve the code!
