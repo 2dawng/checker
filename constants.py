@@ -20,3 +20,9 @@ BUTTON_HOVER_COLOR = (100, 160, 210)
 PANEL_COLOR = (40, 40, 40)
 LAST_MOVE_COLOR = (230, 230, 250)  # Lavender for last move indicator
 CAPTURE_COLOR = (219, 112, 147)    # Light-mid red for captured pieces indicator
+
+WOOD_TEXTURE = (189, 154, 122)
+BOARD_BORDER = (78, 53, 36)
+BACKGROUND_COLOR = (28, 28, 28)
+NEON_HIGHLIGHT = (0, 255, 255)
+BUTTON_GRADIENT = [(40, 40, 40), (60, 60, 60)]
