@@ -5,7 +5,7 @@
             "name": "Python: Checkers Game",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/checker_game.py",
+            "program": "${workspaceFolder}/main.py",
             "console": "integratedTerminal",
             "justMyCode": true,
             "env": {
