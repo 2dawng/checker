@@ -100,8 +100,8 @@ class Game:
         """
         Check if the game is a draw based on:
         1. Position repetition (5 times)
-        2. 20 moves without captures
-        3. 20 moves without non-king piece movement
+        2. 50 moves without captures
+        3. 50 moves without non-king piece movement
         """
         # Check for position repetition (5 times)
         current_state = self.encode_board_state()
@@ -111,15 +111,15 @@ class Game:
             self.game_over = True
             return "Position Repetition - Draw"
             
-        # Check for 20 moves without captures
-        if self.moves_without_capture >= 40:  # 40 half-moves = 20 full moves
+        # Check for 50 moves without captures
+        if self.moves_without_capture >= 100:  # 100 half-moves = 50 full moves
             self.game_over = True
-            return "No Captures in 20 Moves - Draw"
+            return "No Captures in 50 Moves - Draw"
             
-        # Check for 20 moves without pawn movement
-        if self.moves_without_pawn_move >= 40:  # 40 half-moves = 20 full moves
+        # Check for 50 moves without pawn movement
+        if self.moves_without_pawn_move >= 100:  # 100 half-moves = 50 full moves
             self.game_over = True
-            return "No Pawn Moves in 20 Moves - Draw"
+            return "No Pawn Moves in 50 Moves - Draw"
             
         return None
 

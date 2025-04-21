@@ -18,6 +18,10 @@ A modern implementation of the classic Checkers (Draughts) game using Python and
 - Game state tracking and display
 - Home button for easy navigation
 - Animation for piece movement
+- Draw detection:
+  - Position repetition (5 times)
+  - 50 moves without captures
+  - 50 moves without non-king piece movement
 
 ## Requirements
 
@@ -69,6 +73,10 @@ python checker_game.py
    - Capturing all opponent pieces
    - No legal moves available (stalemate)
    - Time runs out (in two-player mode)
+   - Draw conditions:
+     - Position repetition: Same position occurs 5 times
+     - 50-move rule: 50 moves without captures
+     - 50-move rule: 50 moves without moving a non-king piece
 
 ### Controls
 
