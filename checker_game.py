@@ -431,10 +431,23 @@ def main():
 
     while True:  # Main game loop
         # Create mode selection buttons
+        button_width = 200
+        button_height = 50
+        spacing = 70  # Khoảng cách giữa hai nút
+
+        # Căn giữa theo chiều ngang
+        x_pos = (WINDOW_SIZE[0] - button_width) // 2
+
+        # Căn giữa theo chiều dọc
+        # Tổng chiều cao của 2 nút và khoảng cách: 50 + 70 + 50 = 170
+        # Đặt nút đầu tiên sao cho toàn bộ khối nút nằm giữa màn hình
+        y_start = (WINDOW_SIZE[1] - (button_height * 2 + spacing)) // 2
+
+        # Tạo các nút
         two_player_btn = Button(
-            WINDOW_SIZE[0]//4, WINDOW_SIZE[1]//2 - 60, 200, 50, "2 Players")
+            x_pos, y_start, button_width, button_height, "2 Players")
         vs_bot_btn = Button(
-            WINDOW_SIZE[0]//4, WINDOW_SIZE[1]//2 + 10, 200, 50, "vs Bot")
+            x_pos, y_start + button_height + spacing, button_width, button_height, "VS Bot")
 
         # Mode selection screen
         waiting_for_mode = True
