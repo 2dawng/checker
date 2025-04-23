@@ -24,8 +24,8 @@ class Game:
         self.game_over = False
         self.winner = None
         self.start_time = time.time()
-        self.player1_time = 2000
-        self.player2_time = 2000
+        self.player1_time = 300
+        self.player2_time = 300
         self.last_time_update = time.time()
         self.animation_start_time = time.time()  # Initialize with a valid float
         self.move_number = 0
